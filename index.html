@@ -250,9 +250,16 @@ $('pubBtn').onclick = () => {
 };
 
 // ---------- OTA ----------
-function waitOta(phases){                              // 返回 Promise, 收到匹配 phase 的 ota 事件时 resolve
+function waitOta(phases, ms=0){                        // 返回 Promise, 收到匹配 phase 的 ota 事件时 resolve; ms>0 则超时 reject
   const arr = Array.isArray(phases)?phases:[phases];
-  return new Promise((resolve,reject)=>{ otaWaiter={phases:arr,resolve,reject}; });
+  return new Promise((resolve,reject)=>{
+    let to=null;
+    const w={phases:arr,
+      resolve:d=>{ if(to)clearTimeout(to); resolve(d); },
+      reject:e=>{ if(to)clearTimeout(to); reject(e); }};
+    otaWaiter=w;
+    if(ms>0) to=setTimeout(()=>{ if(otaWaiter===w){ otaWaiter=null; reject(new Error('超时未收到 '+arr.join('/'))); } }, ms);
+  });
 }
 function onOta(d){
   if(d.pct!=null) $('otaBar').style.width=d.pct+'%';
@@ -267,25 +274,30 @@ $('otaBleBtn').onclick = async () => {
   if(!f){ msg('m5','请先选择 .bin 文件','err'); return; }
   if(!otaChar){ msg('m5','蓝牙未连接','err'); return; }
   const buf=new Uint8Array(await f.arrayBuffer()); const size=buf.length;
-  $('otaBar').style.width='0%';
+  $('otaBar').style.width='0%'; $('otaBleBtn').disabled=true;
   try{
     msg('m5','开始, 大小 '+size+' 字节…');
     send({cmd:'ota_begin', size});
-    await waitOta(['ready','error']).then(d=>{ if(d.phase==='error') throw new Error(d.msg); });
-    const CHUNK=180, WIN=12; let sent=0, cnt=0;
+    const r=await waitOta(['ready','error'],15000); if(r.phase==='error') throw new Error(r.msg);
+    // 关键: 带应答写(writeValueWithResponse) —— ATT 逐包确认, 不丢包, 天然流控
+    const CHUNK=180; let sent=0, since=0;
     while(sent<size){
       const end=Math.min(sent+CHUNK,size);
-      await otaChar.writeValueWithoutResponse(buf.slice(sent,end));
-      sent=end; cnt++;
-      if(cnt%WIN===0 || sent>=size){                  // 每 12 片(或最后)等 ESP ack, 再继续 = 流控
-        const d=await waitOta(['ack','error']); if(d.phase==='error') throw new Error(d.msg);
-        $('otaBar').style.width=Math.floor(sent/size*100)+'%';
-      }
+      await otaChar.writeValueWithResponse(buf.slice(sent,end));
+      sent=end; since+=CHUNK;
+      if(since>=8192 || sent>=size){ since=0;
+        const p=Math.floor(sent/size*100); $('otaBar').style.width=p+'%'; msg('m5','上传中 '+p+'%'); }
     }
     send({cmd:'ota_end'});
-    const d=await waitOta(['done','error']); if(d.phase==='error') throw new Error(d.msg);
+    const d=await waitOta(['done','error'],20000); if(d.phase==='error') throw new Error(d.msg);
+    $('otaBar').style.width='100%';
     log('OTA 完成, 设备重启后可重新连接蓝牙验证');
-  }catch(e){ msg('m5','OTA 中断: '+e.message,'err'); log('OTA 中断: '+e.message); }
+  }catch(e){
+    msg('m5','OTA 中断: '+e.message+' —— 按板上 RST 复位后重试(当前固件不会坏)','err');
+    log('OTA 中断: '+e.message);
+    try{ send({cmd:'ota_abort'}); }catch(_){}
+  }
+  $('otaBleBtn').disabled=false;
 };
 
 $('otaUrlBleBtn').onclick = () => {

@@ -373,6 +373,8 @@ static void provHandleCommand(const String& line) {
     if (provBleFreed) { provSendOta("error", "BLE 已释放, 请改用 URL-OTA"); return; }
     size_t sz = (size_t)(uint32_t)(d["size"] | 0);
     if (sz == 0) { provSendOta("error", "size=0"); return; }
+    if (Update.isRunning()) Update.abort();      // 中止上一次没走完的升级, 允许直接重试
+    provOtaActive = false;
     if (!Update.begin(sz)) { provSendOta("error", Update.errorString()); return; }
     provOtaActive = true; provOtaSize = sz; provOtaRecv = 0;
     provOtaAckPend = false; provOtaErr = false;
