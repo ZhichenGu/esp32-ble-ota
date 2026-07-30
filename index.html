@@ -1,543 +1,305 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>ESP32-S3 BLE WiFi MQTT OTA</title>
-  <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
-  <style>
-    :root {
-      color-scheme: light;
-      --bg: #f7f7f4;
-      --panel: #ffffff;
-      --ink: #202124;
-      --muted: #62666d;
-      --line: #d9dce0;
-      --accent: #166a5b;
-      --accent-2: #1b4d89;
-      --danger: #b3261e;
-      --ok: #146c2e;
-      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-    }
-
-    * {
-      box-sizing: border-box;
-    }
-
-    body {
-      margin: 0;
-      min-height: 100vh;
-      background: var(--bg);
-      color: var(--ink);
-    }
-
-    main {
-      width: min(1120px, calc(100% - 32px));
-      margin: 0 auto;
-      padding: 28px 0;
-    }
-
-    header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 16px;
-      margin-bottom: 20px;
-    }
-
-    h1 {
-      margin: 0;
-      font-size: clamp(24px, 3vw, 34px);
-      line-height: 1.1;
-      letter-spacing: 0;
-    }
-
-    .status-pill {
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-      min-height: 36px;
-      padding: 7px 12px;
-      border: 1px solid var(--line);
-      border-radius: 999px;
-      background: #fff;
-      color: var(--muted);
-      white-space: nowrap;
-      font-size: 14px;
-    }
-
-    .dot {
-      width: 9px;
-      height: 9px;
-      border-radius: 999px;
-      background: #9aa0a6;
-    }
-
-    .dot.ok {
-      background: var(--ok);
-    }
-
-    .grid {
-      display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 16px;
-    }
-
-    section {
-      background: var(--panel);
-      border: 1px solid var(--line);
-      border-radius: 8px;
-      padding: 18px;
-    }
-
-    section.full {
-      grid-column: 1 / -1;
-    }
-
-    h2 {
-      margin: 0 0 14px;
-      font-size: 17px;
-      line-height: 1.3;
-      letter-spacing: 0;
-    }
-
-    label {
-      display: block;
-      color: var(--muted);
-      font-size: 13px;
-      margin: 12px 0 6px;
-    }
-
-    input,
-    select {
-      width: 100%;
-      min-height: 40px;
-      border: 1px solid var(--line);
-      border-radius: 6px;
-      padding: 8px 10px;
-      font: inherit;
-      color: var(--ink);
-      background: #fff;
-    }
-
-    input:focus,
-    select:focus {
-      outline: 2px solid rgba(22, 106, 91, 0.22);
-      border-color: var(--accent);
-    }
-
-    .row {
-      display: grid;
-      grid-template-columns: 1fr 128px;
-      gap: 10px;
-      align-items: end;
-    }
-
-    .actions {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 10px;
-      margin-top: 14px;
-    }
-
-    button {
-      min-height: 40px;
-      border: 1px solid transparent;
-      border-radius: 6px;
-      padding: 8px 12px;
-      font: inherit;
-      font-weight: 650;
-      color: #fff;
-      background: var(--accent);
-      cursor: pointer;
-    }
-
-    button.secondary {
-      color: var(--accent-2);
-      border-color: #b9c7d8;
-      background: #f8fbff;
-    }
-
-    button.danger {
-      background: var(--danger);
-    }
-
-    button:disabled {
-      cursor: not-allowed;
-      opacity: 0.55;
-    }
-
-    .log {
-      height: 260px;
-      overflow: auto;
-      border: 1px solid var(--line);
-      border-radius: 6px;
-      background: #101418;
-      color: #d7e7db;
-      padding: 12px;
-      font: 13px/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-      white-space: pre-wrap;
-    }
-
-    .hint {
-      margin: 10px 0 0;
-      color: var(--muted);
-      font-size: 13px;
-      line-height: 1.45;
-    }
-
-    @media (max-width: 760px) {
-      main {
-        width: min(100% - 20px, 1120px);
-        padding: 18px 0;
-      }
-
-      header,
-      .grid {
-        grid-template-columns: 1fr;
-      }
-
-      header {
-        align-items: flex-start;
-        flex-direction: column;
-      }
-
-      .row {
-        grid-template-columns: 1fr;
-      }
-
-      .status-pill {
-        white-space: normal;
-      }
-    }
-  </style>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ESP32 配网 & OTA 控制台</title>
+<script src="https://unpkg.com/mqtt@5.7.0/dist/mqtt.min.js"></script>
+<style>
+  :root{ --bg:#0f1115; --card:#171a21; --line:#262b36; --tx:#e6e9ef; --dim:#8b93a3;
+         --acc:#4f8cff; --ok:#2ecc71; --err:#ff5c5c; }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--tx);
+       font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC",sans-serif;
+       padding:24px 16px 60px}
+  .wrap{max-width:640px;margin:0 auto}
+  h1{font-size:20px;margin:0 0 4px}
+  .sub{color:var(--dim);font-size:13px;margin-bottom:20px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px;margin-bottom:14px}
+  .card.off{opacity:.45;pointer-events:none}
+  .hd{display:flex;align-items:center;gap:8px;margin-bottom:12px;font-weight:600}
+  .n{width:22px;height:22px;border-radius:50%;background:var(--acc);color:#fff;
+     font-size:12px;display:grid;place-items:center;flex:none}
+  .dot{width:8px;height:8px;border-radius:50%;background:#555;margin-left:auto}
+  .dot.on{background:var(--ok)} .dot.bad{background:var(--err)}
+  label{display:block;font-size:12px;color:var(--dim);margin:10px 0 4px}
+  input,select{width:100%;background:#0d0f14;border:1px solid var(--line);color:var(--tx);
+        border-radius:8px;padding:9px 10px;font-size:14px;outline:none}
+  input:focus,select:focus{border-color:var(--acc)}
+  input[type=file]{padding:7px}
+  button{background:var(--acc);color:#fff;border:0;border-radius:8px;padding:10px 16px;
+         font-size:14px;font-weight:600;cursor:pointer;margin-top:12px}
+  button:disabled{opacity:.5;cursor:default}
+  button.ghost{background:#232833}
+  .row{display:flex;gap:8px;flex-wrap:wrap}
+  .row>*{flex:1}
+  .msg{font-size:12px;color:var(--dim);margin-top:10px;min-height:16px;word-break:break-all}
+  .msg.err{color:var(--err)} .msg.ok{color:var(--ok)}
+  .bar{height:8px;background:#0b0d11;border:1px solid var(--line);border-radius:5px;overflow:hidden;margin-top:12px}
+  .bar>i{display:block;height:100%;width:0;background:var(--acc);transition:width .1s}
+  .hint{font-size:12px;color:var(--dim);margin-top:6px}
+  #log{background:#0b0d11;border:1px solid var(--line);border-radius:8px;padding:10px;
+       height:150px;overflow:auto;font:11px/1.6 ui-monospace,Menlo,monospace;color:var(--dim);
+       white-space:pre-wrap;margin-top:6px}
+</style>
 </head>
 <body>
-  <main>
-    <header>
-      <h1>ESP32-S3 BLE WiFi MQTT OTA</h1>
-      <div class="status-pill"><span id="bleDot" class="dot"></span><span id="bleState">BLE 未连接</span></div>
-    </header>
+<div class="wrap">
+  <h1>ESP32 配网 &amp; OTA 控制台</h1>
+  <div class="sub">蓝牙配网 → WiFi → HiveMQ → 空中升级 · 需 Chrome / Edge (桌面或安卓), 页面须 https / localhost</div>
 
-    <div class="grid">
-      <section>
-        <h2>1. 连接 ESP32-S3</h2>
-        <div class="actions">
-          <button id="connectBleBtn">连接 BLE</button>
-          <button id="deviceStatusBtn" class="secondary" disabled>读取状态</button>
-        </div>
-        <p class="hint">网页需要在 Chrome/Edge 中打开，并运行在 HTTPS 或 localhost。设备名默认是 ESP32-S3-BLE-OTA。</p>
-      </section>
-
-      <section>
-        <h2>2. WiFi 扫描与保存</h2>
-        <div class="actions">
-          <button id="scanWifiBtn" class="secondary" disabled>扫描 WiFi</button>
-        </div>
-        <label for="wifiList">选择 WiFi</label>
-        <select id="wifiList">
-          <option value="">先扫描 WiFi</option>
-        </select>
-        <label for="wifiPassword">WiFi 密码</label>
-        <input id="wifiPassword" type="password" autocomplete="current-password" placeholder="输入 WiFi 密码" />
-        <div class="actions">
-          <button id="saveWifiBtn" disabled>保存到 ESP32</button>
-        </div>
-      </section>
-
-      <section>
-        <h2>3. 保存 HiveMQ MQTT 凭据到 ESP32</h2>
-        <label for="mqttUrl">HiveMQ URL / Host</label>
-        <input id="mqttUrl" placeholder="例如 xxxxx.s1.eu.hivemq.cloud" />
-        <div class="row">
-          <div>
-            <label for="mqttUsername">用户名</label>
-            <input id="mqttUsername" autocomplete="username" placeholder="HiveMQ 用户名" />
-          </div>
-          <div>
-            <label for="mqttPort">ESP MQTT TLS 端口</label>
-            <input id="mqttPort" inputmode="numeric" value="8883" />
-          </div>
-        </div>
-        <label for="mqttPassword">密码</label>
-        <input id="mqttPassword" type="password" autocomplete="current-password" placeholder="HiveMQ 密码" />
-        <div class="actions">
-          <button id="saveMqttBtn" disabled>保存并让 ESP 连接</button>
-          <button id="connectMqttEspBtn" class="secondary" disabled>ESP 重连 MQTT</button>
-        </div>
-      </section>
-
-      <section>
-        <h2>4. 网页连接 HiveMQ WebSocket</h2>
-        <label for="mqttWsPath">WebSocket Path</label>
-        <input id="mqttWsPath" value="/mqtt" />
-        <div class="actions">
-          <button id="connectMqttWebBtn" class="secondary">网页连接 HiveMQ</button>
-          <button id="disconnectMqttWebBtn" class="secondary" disabled>断开网页 MQTT</button>
-        </div>
-        <p id="webMqttState" class="hint">网页 MQTT 未连接。浏览器通常使用 wss://host:8884/mqtt。</p>
-      </section>
-
-      <section class="full">
-        <h2>5. HTTPS OTA 更新</h2>
-        <label for="otaUrl">固件 .bin 的 HTTPS 链接</label>
-        <input id="otaUrl" placeholder="https://example.com/firmware.bin" />
-        <div class="actions">
-          <button id="otaBtn" class="danger" disabled>发送 OTA 链接并更新</button>
-        </div>
-        <p class="hint">Arduino IDE 编译后可用 Sketch → Export Compiled Binary 得到 .bin，然后上传到 HTTPS 可访问的位置。</p>
-      </section>
-
-      <section class="full">
-        <h2>日志</h2>
-        <div id="log" class="log"></div>
-      </section>
+  <!-- 1. 蓝牙 -->
+  <div class="card" id="c1">
+    <div class="hd"><span class="n">1</span>蓝牙连接<span class="dot" id="d1"></span></div>
+    <div class="row">
+      <button id="btBtn">连接 ESP32</button>
+      <button id="btOff" class="ghost" disabled>断开</button>
     </div>
-  </main>
+    <div class="msg" id="m1">点"连接 ESP32", 在弹窗里选择名为 ESP32-OTA 的设备</div>
+  </div>
 
-  <script>
-    const SERVICE_UUID = 'a7b10000-2c3d-4e5f-9012-3456789abcde';
-    const CMD_UUID = 'a7b10001-2c3d-4e5f-9012-3456789abcde';
-    const STATUS_UUID = 'a7b10002-2c3d-4e5f-9012-3456789abcde';
+  <!-- 2. WiFi -->
+  <div class="card off" id="c2">
+    <div class="hd"><span class="n">2</span>WiFi 配网<span class="dot" id="d2"></span></div>
+    <button id="scanBtn" class="ghost">扫描 WiFi</button>
+    <label>选择网络</label>
+    <select id="ssidSel"><option value="">— 先扫描 —</option></select>
+    <label>密码</label>
+    <input id="wifiPass" type="password" placeholder="WiFi 密码" autocomplete="off">
+    <button id="wifiBtn">连接并记住 WiFi</button>
+    <div class="msg" id="m2"></div>
+  </div>
 
-    const els = {
-      bleDot: document.getElementById('bleDot'),
-      bleState: document.getElementById('bleState'),
-      connectBleBtn: document.getElementById('connectBleBtn'),
-      deviceStatusBtn: document.getElementById('deviceStatusBtn'),
-      scanWifiBtn: document.getElementById('scanWifiBtn'),
-      wifiList: document.getElementById('wifiList'),
-      wifiPassword: document.getElementById('wifiPassword'),
-      saveWifiBtn: document.getElementById('saveWifiBtn'),
-      mqttUrl: document.getElementById('mqttUrl'),
-      mqttPort: document.getElementById('mqttPort'),
-      mqttUsername: document.getElementById('mqttUsername'),
-      mqttPassword: document.getElementById('mqttPassword'),
-      saveMqttBtn: document.getElementById('saveMqttBtn'),
-      connectMqttEspBtn: document.getElementById('connectMqttEspBtn'),
-      mqttWsPath: document.getElementById('mqttWsPath'),
-      connectMqttWebBtn: document.getElementById('connectMqttWebBtn'),
-      disconnectMqttWebBtn: document.getElementById('disconnectMqttWebBtn'),
-      webMqttState: document.getElementById('webMqttState'),
-      otaUrl: document.getElementById('otaUrl'),
-      otaBtn: document.getElementById('otaBtn'),
-      log: document.getElementById('log'),
-    };
+  <!-- 3. 给 ESP32 配 HiveMQ -->
+  <div class="card off" id="c3">
+    <div class="hd"><span class="n">3</span>让 ESP32 记住 HiveMQ<span class="dot" id="d3"></span></div>
+    <label>Broker 地址</label>
+    <input id="mqHost" placeholder="xxxxxxxx.s1.eu.hivemq.cloud" autocomplete="off">
+    <div class="row">
+      <div><label>ESP32 TLS 端口</label><input id="mqPort" value="8883"></div>
+      <div><label>主题前缀</label><input id="mqPrefix" value="esp32"></div>
+    </div>
+    <label>用户名</label><input id="mqUser" autocomplete="off">
+    <label>密码</label><input id="mqPass" type="password" autocomplete="off">
+    <button id="mqEspBtn">下发给 ESP32 并连接</button>
+    <div class="hint">配置会写入 ESP32 的 NVS, 下次开机自动连, 无需重配。</div>
+    <div class="msg" id="m3"></div>
+  </div>
 
-    let bleDevice;
-    let cmdCharacteristic;
-    let statusCharacteristic;
-    let webMqttClient;
-    const wifiNetworks = new Map();
+  <!-- 4. 网页连 HiveMQ -->
+  <div class="card" id="c4">
+    <div class="hd"><span class="n">4</span>网页连 HiveMQ (可选)<span class="dot" id="d4"></span></div>
+    <div class="hint">用于收发测试消息, 以及"远程 URL 升级"(往 前缀/ota 发布固件URL)。用上面第 3 步的地址/用户名/密码。</div>
+    <label>浏览器 WSS 端口 (HiveMQ Cloud 默认 8884)</label>
+    <input id="mqWs" value="8884">
+    <button id="mqWebBtn">网页连接 HiveMQ</button>
+    <div class="row">
+      <input id="pubTopic" placeholder="发布主题 例 esp32/test">
+      <input id="pubMsg" placeholder="消息内容">
+    </div>
+    <button id="pubBtn" class="ghost">发布</button>
+    <div class="msg" id="m4"></div>
+  </div>
 
-    function log(message, data) {
-      const stamp = new Date().toLocaleTimeString();
-      const extra = data === undefined ? '' : ` ${typeof data === 'string' ? data : JSON.stringify(data)}`;
-      els.log.textContent += `[${stamp}] ${message}${extra}\n`;
-      els.log.scrollTop = els.log.scrollHeight;
+  <!-- 5. OTA -->
+  <div class="card off" id="c5">
+    <div class="hd"><span class="n">5</span>空中升级 OTA<span class="dot" id="d5"></span></div>
+
+    <label>方式 A · 蓝牙直传本地固件 (.bin)</label>
+    <input id="fw" type="file" accept=".bin">
+    <button id="otaBleBtn">通过蓝牙上传并刷写</button>
+    <div class="bar"><i id="otaBar"></i></div>
+    <div class="hint">选编译出的 <b>*.ino.bin</b>(应用镜像, 不是 merged/factory)。约 1~3 分钟, 完成后自动重启。</div>
+
+    <label style="margin-top:16px">方式 B · 从 URL 拉取 (更快, 蓝牙已释放也能用)</label>
+    <input id="otaUrl" placeholder="https://github.com/你/repo/releases/download/v1/firmware.bin">
+    <div class="row">
+      <button id="otaUrlBleBtn" class="ghost">经蓝牙下发给 ESP 拉取</button>
+      <button id="otaUrlMqttBtn" class="ghost">经 MQTT 远程下发</button>
+    </div>
+    <div class="hint">HTTPS 直链即可(GitHub Release 直链可用)。MQTT 方式需先完成第 4 步。</div>
+    <div class="msg" id="m5"></div>
+  </div>
+
+  <div class="card">
+    <div class="hd">日志 <button id="resetBtn" class="ghost" style="margin:0 0 0 auto;padding:4px 10px;font-size:12px">清除ESP保存的配置</button></div>
+    <div id="log"></div>
+  </div>
+</div>
+
+<script>
+const SVC = '6e400001-b5a3-f393-e0a9-e50e24dcca9e';
+const RX  = '6e400002-b5a3-f393-e0a9-e50e24dcca9e';   // 网页 -> ESP32 (JSON)
+const TX  = '6e400003-b5a3-f393-e0a9-e50e24dcca9e';   // ESP32 -> 网页 (JSON)
+const OTA = '6e400004-b5a3-f393-e0a9-e50e24dcca9e';   // 网页 -> ESP32 (固件字节)
+
+const $ = id => document.getElementById(id);
+const enc = new TextEncoder(), dec = new TextDecoder();
+
+let device, rxChar, otaChar, lineBuf = '';
+let client = null;
+let otaWaiter = null;                                  // {phases:[...], resolve, reject}
+
+function log(s){ const el=$('log'); el.textContent += new Date().toLocaleTimeString()+'  '+s+'\n'; el.scrollTop=el.scrollHeight; }
+function msg(id,t,c=''){ const e=$(id); e.textContent=t; e.className='msg '+c; }
+function dot(id,s){ $(id).className='dot'+(s==='on'?' on':s==='bad'?' bad':''); }
+function enable(id,on){ $(id).classList.toggle('off',!on); }
+
+// ---------- BLE ----------
+$('btBtn').onclick = async () => {
+  if(!navigator.bluetooth){ msg('m1','此浏览器不支持 Web Bluetooth, 请用 Chrome / Edge','err'); return; }
+  try{
+    msg('m1','正在选择设备…');
+    device = await navigator.bluetooth.requestDevice({ filters:[{ services:[SVC] }] });
+    device.addEventListener('gattserverdisconnected', onBleGone);
+    const server = await device.gatt.connect();
+    const svc    = await server.getPrimaryService(SVC);
+    rxChar  = await svc.getCharacteristic(RX);
+    otaChar = await svc.getCharacteristic(OTA);
+    const txc = await svc.getCharacteristic(TX);
+    await txc.startNotifications();
+    txc.addEventListener('characteristicvaluechanged', onBleData);
+    dot('d1','on'); msg('m1','已连接: '+device.name,'ok'); log('BLE 已连接 '+device.name);
+    $('btBtn').disabled=true; $('btOff').disabled=false;
+    enable('c2',true); enable('c3',true); enable('c5',true);
+    send({cmd:'status'});
+  }catch(e){ msg('m1','连接失败: '+e.message,'err'); dot('d1','bad'); }
+};
+$('btOff').onclick = () => { if(device&&device.gatt.connected) device.gatt.disconnect(); };
+
+function onBleGone(){
+  dot('d1','bad'); msg('m1','蓝牙已断开(若刚做完OTA, 说明设备正在重启)','err'); log('BLE 断开');
+  $('btBtn').disabled=false; $('btOff').disabled=true;
+  enable('c2',false); enable('c3',false); enable('c5',false);
+  if(otaWaiter){ otaWaiter.reject(new Error('BLE 断开')); otaWaiter=null; }
+}
+
+function onBleData(ev){
+  lineBuf += dec.decode(ev.target.value);
+  let i;
+  while((i=lineBuf.indexOf('\n'))>=0){
+    const line=lineBuf.slice(0,i).trim(); lineBuf=lineBuf.slice(i+1);
+    if(line){ try{ handle(JSON.parse(line)); }catch(e){ log('解析失败: '+line); } }
+  }
+}
+async function send(obj){
+  if(!rxChar) return;
+  const data = enc.encode(JSON.stringify(obj)+'\n');
+  for(let i=0;i<data.length;i+=180) await rxChar.writeValue(data.slice(i,i+180));
+}
+
+function handle(d){
+  switch(d.t){
+    case 'net':{ const o=document.createElement('option'); o.value=d.ssid;
+      o.textContent=`${d.ssid}  (${d.rssi}dBm)${d.lock?' 🔒':''}`; $('ssidSel').appendChild(o); break; }
+    case 'scan_done': msg('m2',`扫描完成, 找到 ${$('ssidSel').options.length-1} 个网络`,'ok'); $('scanBtn').disabled=false; break;
+    case 'wifi': $('wifiBtn').disabled=false;
+      if(d.ok){ dot('d2','on'); msg('m2','WiFi 已连接并记住, IP: '+d.ip,'ok'); }
+      else    { dot('d2','bad'); msg('m2','WiFi 连接失败, 检查密码','err'); } break;
+    case 'mqtt':
+      if(d.ok){ dot('d3','on'); msg('m3','ESP32 已连接 HiveMQ','ok'); log('ESP32 已连接 MQTT'); }
+      else    { dot('d3','bad'); msg('m3','ESP32 连 MQTT 失败 rc='+d.rc,'err'); } break;
+    case 'status':
+      if(d.wifi){ dot('d2','on'); msg('m2','已连接 '+d.ssid+' · '+d.ip,'ok'); }
+      if(d.mqtt) dot('d3','on');
+      log('设备状态: WiFi='+d.wifi+' MQTT='+d.mqtt+' 空闲块='+d.heap); break;
+    case 'ota': onOta(d); break;
+    case 'log': log('ESP32: '+d.m); break;
+  }
+}
+
+// ---------- WiFi ----------
+$('scanBtn').onclick = () => {
+  $('ssidSel').innerHTML='<option value="">— 选择网络 —</option>';
+  $('scanBtn').disabled=true; msg('m2','扫描中…'); send({cmd:'scan'});
+};
+$('wifiBtn').onclick = () => {
+  const ssid=$('ssidSel').value;
+  if(!ssid){ msg('m2','请先选择一个网络','err'); return; }
+  $('wifiBtn').disabled=true; msg('m2','连接中, 最长 20 秒…');
+  send({cmd:'wifi', ssid, pass:$('wifiPass').value});
+};
+
+// ---------- 让 ESP32 连 HiveMQ ----------
+function cleanHost(h){ return h.trim().replace(/^.*:\/\//,'').replace(/\/.*$/,''); }
+$('mqEspBtn').onclick = () => {
+  const host=cleanHost($('mqHost').value);
+  msg('m3','已下发, 等待 ESP32 连接 HiveMQ (可能会先断开蓝牙以腾出内存)…');
+  send({cmd:'mqtt', host, port:parseInt($('mqPort').value)||8883,
+        user:$('mqUser').value.trim(), pass:$('mqPass').value});
+};
+
+// ---------- 网页连 HiveMQ ----------
+$('mqWebBtn').onclick = () => {
+  const host=cleanHost($('mqHost').value), user=$('mqUser').value.trim(), pass=$('mqPass').value;
+  if(!host||!user||!pass){ msg('m4','请先在第 3 步填好地址/用户名/密码','err'); return; }
+  const url=`wss://${host}:${$('mqWs').value||8884}/mqtt`;
+  log('网页连接 '+url);
+  if(client){ try{client.end(true);}catch(e){} }
+  client = mqtt.connect(url,{ username:user, password:pass,
+    clientId:'web-'+Math.random().toString(16).slice(2,10), clean:true, reconnectPeriod:4000, connectTimeout:8000 });
+  client.on('connect', ()=>{ dot('d4','on'); msg('m4','网页已连接 HiveMQ','ok'); log('网页 MQTT 已连接');
+    const p=($('mqPrefix').value.trim()||'esp32'); client.subscribe([p+'/#']); });
+  client.on('error', e=>{ dot('d4','bad'); msg('m4','MQTT 错误: '+e.message,'err'); });
+  client.on('message',(t,p)=>log(`← ${t}: ${p.toString()}`));
+};
+$('pubBtn').onclick = () => {
+  if(!client||!client.connected){ msg('m4','请先网页连接 HiveMQ','err'); return; }
+  const t=$('pubTopic').value.trim(); if(!t){ msg('m4','填写发布主题','err'); return; }
+  client.publish(t,$('pubMsg').value); log(`→ ${t}: ${$('pubMsg').value}`);
+};
+
+// ---------- OTA ----------
+function waitOta(phases){                              // 返回 Promise, 收到匹配 phase 的 ota 事件时 resolve
+  const arr = Array.isArray(phases)?phases:[phases];
+  return new Promise((resolve,reject)=>{ otaWaiter={phases:arr,resolve,reject}; });
+}
+function onOta(d){
+  if(d.pct!=null) $('otaBar').style.width=d.pct+'%';
+  if(d.phase==='progress'||d.phase==='ack'){ if(d.pct!=null) msg('m5','上传中 '+d.pct+'%'); }
+  if(d.phase==='done')  msg('m5','✅ 刷写成功, 设备重启中…','ok');
+  if(d.phase==='error') msg('m5','❌ OTA 失败: '+(d.msg||''),'err');
+  if(otaWaiter && otaWaiter.phases.includes(d.phase)){ const w=otaWaiter; otaWaiter=null; w.resolve(d); }
+}
+
+$('otaBleBtn').onclick = async () => {
+  const f=$('fw').files[0];
+  if(!f){ msg('m5','请先选择 .bin 文件','err'); return; }
+  if(!otaChar){ msg('m5','蓝牙未连接','err'); return; }
+  const buf=new Uint8Array(await f.arrayBuffer()); const size=buf.length;
+  $('otaBar').style.width='0%';
+  try{
+    msg('m5','开始, 大小 '+size+' 字节…');
+    send({cmd:'ota_begin', size});
+    await waitOta(['ready','error']).then(d=>{ if(d.phase==='error') throw new Error(d.msg); });
+    const CHUNK=180, WIN=12; let sent=0, cnt=0;
+    while(sent<size){
+      const end=Math.min(sent+CHUNK,size);
+      await otaChar.writeValueWithoutResponse(buf.slice(sent,end));
+      sent=end; cnt++;
+      if(cnt%WIN===0 || sent>=size){                  // 每 12 片(或最后)等 ESP ack, 再继续 = 流控
+        const d=await waitOta(['ack','error']); if(d.phase==='error') throw new Error(d.msg);
+        $('otaBar').style.width=Math.floor(sent/size*100)+'%';
+      }
     }
+    send({cmd:'ota_end'});
+    const d=await waitOta(['done','error']); if(d.phase==='error') throw new Error(d.msg);
+    log('OTA 完成, 设备重启后可重新连接蓝牙验证');
+  }catch(e){ msg('m5','OTA 中断: '+e.message,'err'); log('OTA 中断: '+e.message); }
+};
 
-    function setBleConnected(connected) {
-      els.bleDot.classList.toggle('ok', connected);
-      els.bleState.textContent = connected ? `BLE 已连接：${bleDevice?.name || 'ESP32-S3'}` : 'BLE 未连接';
-      [
-        els.deviceStatusBtn,
-        els.scanWifiBtn,
-        els.saveWifiBtn,
-        els.saveMqttBtn,
-        els.connectMqttEspBtn,
-        els.otaBtn,
-      ].forEach((button) => button.disabled = !connected);
-    }
+$('otaUrlBleBtn').onclick = () => {
+  const url=$('otaUrl').value.trim(); if(!url){ msg('m5','填写固件 URL','err'); return; }
+  msg('m5','已让 ESP 从 URL 拉取, 看日志/串口进度…'); send({cmd:'ota_url', url});
+};
+$('otaUrlMqttBtn').onclick = () => {
+  const url=$('otaUrl').value.trim(); if(!url){ msg('m5','填写固件 URL','err'); return; }
+  if(!client||!client.connected){ msg('m5','请先完成第 4 步网页连 HiveMQ','err'); return; }
+  const p=($('mqPrefix').value.trim()||'esp32'); client.publish(p+'/ota', url);
+  msg('m5','已通过 MQTT '+p+'/ota 远程下发','ok'); log('→ '+p+'/ota: '+url);
+};
 
-    function textFromEvent(event) {
-      return new TextDecoder().decode(event.target.value);
-    }
-
-    function handleDeviceMessage(text) {
-      log('ESP → Web', text);
-
-      let msg;
-      try {
-        msg = JSON.parse(text);
-      } catch {
-        return;
-      }
-
-      if (msg.type === 'wifi_network' && msg.ssid) {
-        wifiNetworks.set(msg.ssid, msg);
-        renderWifiList();
-      }
-
-      if (msg.type === 'wifi_scan_done') {
-        log(`WiFi 扫描完成，共 ${msg.count} 个网络`);
-      }
-    }
-
-    function renderWifiList() {
-      const selected = els.wifiList.value;
-      els.wifiList.innerHTML = '';
-
-      const networks = [...wifiNetworks.values()].sort((a, b) => b.rssi - a.rssi);
-      if (!networks.length) {
-        els.wifiList.append(new Option('未发现 WiFi', ''));
-        return;
-      }
-
-      for (const net of networks) {
-        const lock = net.secure ? '加密' : '开放';
-        els.wifiList.append(new Option(`${net.ssid} (${net.rssi} dBm, ${lock})`, net.ssid));
-      }
-
-      if (selected && wifiNetworks.has(selected)) {
-        els.wifiList.value = selected;
-      }
-    }
-
-    async function sendCommand(command) {
-      if (!cmdCharacteristic) {
-        throw new Error('BLE command characteristic not ready.');
-      }
-      const text = JSON.stringify(command);
-      if (text.length > 500) {
-        throw new Error('Command is too long for this simple BLE example.');
-      }
-      log('Web → ESP', text);
-      await cmdCharacteristic.writeValue(new TextEncoder().encode(text));
-    }
-
-    async function connectBle() {
-      if (!navigator.bluetooth) {
-        alert('当前浏览器不支持 Web Bluetooth，请使用 Chrome 或 Edge。');
-        return;
-      }
-
-      bleDevice = await navigator.bluetooth.requestDevice({
-        filters: [{ namePrefix: 'ESP32-S3' }],
-        optionalServices: [SERVICE_UUID],
-      });
-
-      bleDevice.addEventListener('gattserverdisconnected', () => {
-        cmdCharacteristic = null;
-        statusCharacteristic = null;
-        setBleConnected(false);
-        log('BLE 已断开');
-      });
-
-      const server = await bleDevice.gatt.connect();
-      const service = await server.getPrimaryService(SERVICE_UUID);
-      cmdCharacteristic = await service.getCharacteristic(CMD_UUID);
-      statusCharacteristic = await service.getCharacteristic(STATUS_UUID);
-      await statusCharacteristic.startNotifications();
-      statusCharacteristic.addEventListener('characteristicvaluechanged', (event) => {
-        handleDeviceMessage(textFromEvent(event));
-      });
-
-      setBleConnected(true);
-      log('BLE 连接成功');
-      await sendCommand({ action: 'status' });
-    }
-
-    function mqttHostOnly(input) {
-      return input
-        .trim()
-        .replace(/^mqtts:\/\//, '')
-        .replace(/^ssl:\/\//, '')
-        .replace(/^tls:\/\//, '')
-        .replace(/^wss:\/\//, '')
-        .replace(/^ws:\/\//, '')
-        .split('/')[0]
-        .split(':')[0];
-    }
-
-    function connectWebMqtt() {
-      const host = mqttHostOnly(els.mqttUrl.value);
-      const username = els.mqttUsername.value.trim();
-      const password = els.mqttPassword.value;
-      const path = els.mqttWsPath.value.trim() || '/mqtt';
-
-      if (!host || !username || !password) {
-        alert('请先输入 HiveMQ URL、用户名和密码。');
-        return;
-      }
-
-      const wsUrl = `wss://${host}:8884${path.startsWith('/') ? path : `/${path}`}`;
-      log('网页 MQTT 连接', wsUrl);
-
-      webMqttClient = mqtt.connect(wsUrl, {
-        username,
-        password,
-        clean: true,
-        connectTimeout: 12000,
-        reconnectPeriod: 0,
-        clientId: `web-${Math.random().toString(16).slice(2)}`,
-      });
-
-      webMqttClient.on('connect', () => {
-        els.webMqttState.textContent = `网页 MQTT 已连接：${wsUrl}`;
-        els.connectMqttWebBtn.disabled = true;
-        els.disconnectMqttWebBtn.disabled = false;
-        log('网页 MQTT 已连接');
-      });
-
-      webMqttClient.on('error', (error) => {
-        els.webMqttState.textContent = `网页 MQTT 错误：${error.message}`;
-        log('网页 MQTT 错误', error.message);
-        webMqttClient.end(true);
-      });
-
-      webMqttClient.on('close', () => {
-        els.connectMqttWebBtn.disabled = false;
-        els.disconnectMqttWebBtn.disabled = true;
-        log('网页 MQTT 已关闭');
-      });
-    }
-
-    els.connectBleBtn.addEventListener('click', () => connectBle().catch((error) => log('BLE 连接失败', error.message)));
-    els.deviceStatusBtn.addEventListener('click', () => sendCommand({ action: 'status' }).catch((error) => log('读取状态失败', error.message)));
-    els.scanWifiBtn.addEventListener('click', async () => {
-      wifiNetworks.clear();
-      renderWifiList();
-      await sendCommand({ action: 'scan_wifi' });
-    });
-    els.saveWifiBtn.addEventListener('click', () => {
-      sendCommand({
-        action: 'save_wifi',
-        ssid: els.wifiList.value,
-        password: els.wifiPassword.value,
-      }).catch((error) => log('保存 WiFi 失败', error.message));
-    });
-    els.saveMqttBtn.addEventListener('click', () => {
-      sendCommand({
-        action: 'save_mqtt',
-        url: els.mqttUrl.value,
-        port: Number.parseInt(els.mqttPort.value, 10) || 8883,
-        username: els.mqttUsername.value.trim(),
-        password: els.mqttPassword.value,
-      }).catch((error) => log('保存 MQTT 失败', error.message));
-    });
-    els.connectMqttEspBtn.addEventListener('click', () => {
-      sendCommand({ action: 'connect_mqtt' }).catch((error) => log('ESP MQTT 连接失败', error.message));
-    });
-    els.connectMqttWebBtn.addEventListener('click', connectWebMqtt);
-    els.disconnectMqttWebBtn.addEventListener('click', () => {
-      webMqttClient?.end(true);
-      els.webMqttState.textContent = '网页 MQTT 未连接。浏览器通常使用 wss://host:8884/mqtt。';
-    });
-    els.otaBtn.addEventListener('click', () => {
-      const url = els.otaUrl.value.trim();
-      if (!url.startsWith('https://')) {
-        alert('请输入 HTTPS OTA 链接。');
-        return;
-      }
-      const ok = confirm('OTA 会下载固件并重启 ESP32-S3，确定继续？');
-      if (ok) {
-        sendCommand({ action: 'ota', url }).catch((error) => log('OTA 失败', error.message));
-      }
-    });
-
-    setBleConnected(false);
-    log('页面已加载');
-  </script>
+$('resetBtn').onclick = () => { if(rxChar){ send({cmd:'reset'}); log('已请求清除 ESP 配置'); } };
+</script>
 </body>
 </html>
